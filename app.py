@@ -4,6 +4,8 @@ import requests
 import itertools
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
+import random
+from math import prod
 
 # --- GESTION OLLAMA ---
 try:
@@ -14,6 +16,9 @@ except ImportError:
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="LoL AI Coach V10 - Pool Manager", layout="wide")
+
+MAX_COMBINATIONS = 25000
+TOP_K_PER_ROLE = 8   # réduction intelligente par rôle
 
 # --- MAPPING ---
 NAME_MAPPING = {
@@ -35,9 +40,9 @@ USER_STARTER_POOL = {
 # 2. LA LISTE DU JEU COMPLET (Pour l'option "Méta Globale")
 # -> J'ai rempli ça avec quasiment tous les champions viables par rôle en S14/S15.
 GLOBAL_META_ROLES = {
-    "TOP": ["Aatrox", "Akali", "Ambessa", "Camille", "ChoGath", "Darius", "DrMundo", "Fiora", "Gangplank", "Garen", "Gnar", "Gragas", "Gwen", "Illaoi", "Irelia", "Jax", "Jayce", "Kayle", "Kennen", "Kled", "Ksante", "Malphite", "Mordekaiser", "Nasus", "Olaf", "Ornn", "Pantheon", "Poppy", "Quinn", "Renekton", "Riven", "Rumble", "Sett", "Shen", "Singed", "Sion", "TahmKench", "Teemo", "Tryndamere", "Urgot", "Vayne", "Volibear", "Wukong", "Yasuo", "Yone", "Yorick", "Zac"],
-    "JUNGLE": ["Amumu", "Belveth", "Briar", "Diana", "Ekko", "Elise", "Evelynn", "Fiddlesticks", "Gragas", "Graves", "Hecarim", "Ivern", "JarvanIV", "Karthus", "Kayn", "KhaZix", "Kindred", "LeeSin", "Lillia", "MasterYi", "Maokai", "Nidalee", "Nocturne", "Nunu", "Pantheon", "Poppy", "Rammus", "RekSai", "Rengar", "Sejuani", "Shaco", "Shyvana", "Skarner", "Taliyah", "Talon", "Trundle", "Udyr", "Vi", "Viego", "Volibear", "Warwick", "Wukong", "XinZhao", "Zac", "Zed"],
-    "MID": ["Ahri", "Akali", "Akshan", "Anivia", "Annie", "AurelionSol", "Aurora", "Azir", "Cassiopeia", "Corki", "Diana", "Ekko", "Fizz", "Galio", "Hwei", "Irelia", "Jayce", "Kassadin", "Katarina", "Leblanc", "Lissandra", "Lux", "Malzahar", "Naafiri", "Neeko", "Orianna", "Qiyana", "Ryze", "Smolder", "Swain", "Sylas", "Syndra", "Taliyah", "Talon", "TwistedFate", "Veigar", "Vex", "Viktor", "Vladimir", "Xerath", "Yasuo", "Yone", "Zed", "Ziggs", "Zoe"],
+    "TOP": ["Aatrox", "Akali", "Ambessa", "Camille", "ChoGath", "Darius", "DrMundo", "Fiora", "Gangplank", "Garen", "Gnar", "Gragas", "Gwen","Irelia", "Jax", "Jayce", "Kayle", "Kennen", "Kled", "Ksante", "Malphite", "Mordekaiser", "Nasus", "Olaf", "Ornn","Poppy","Renekton", "Riven", "Rumble", "Sett", "Shen", "Singed", "Sion", "TahmKench", "Teemo", "Tryndamere", "Urgot", "Vayne", "Volibear", "Yasuo", "Yone", "Yorick", "Zaahen"],
+    "JUNGLE": ["Amumu", "Diana","Elise", "Fiddlesticks","Graves", "Hecarim", "Ivern", "JarvanIV", "Karthus", "Kayn", "KhaZix", "Kindred", "LeeSin", "Lillia","Maokai", "Nidalee", "Nocturne", "Nunu", "Pantheon", "Poppy","RekSai", "Rengar", "Sejuani", "Shaco","Skarner","Talon", "Trundle","Vi", "Viego", "Volibear","Wukong", "XinZhao", "Zac", "Zed"],
+    "MID": ["Ahri", "Akali","Anivia", "Annie", "AurelionSol", "Aurora", "Azir", "Cassiopeia", "Corki", "Diana","Galio", "Hwei", "Irelia", "Jayce","Katarina", "Leblanc", "Lissandra", "Lux", "Malzahar","Neeko", "Orianna", "Qiyana", "Ryze", "Smolder", "Swain", "Sylas", "Syndra", "Taliyah", "Talon", "TwistedFate", "Veigar", "Vex", "Viktor", "Vladimir", "Xerath", "Yasuo", "Yone", "Zed", "Ziggs", "Zoe"],
     "ADC": ["Aphelios", "Ashe", "Caitlyn", "Draven", "Ezreal", "Jhin", "Jinx", "Kaisa", "Kalista", "KogMaw", "Lucian", "MissFortune", "Nilah", "Samira", "Sivir", "Smolder", "Tristana", "Twitch", "Varus", "Vayne", "Xayah", "Zeri", "Ziggs"],
     "SUPPORT": ["Alistar", "Amumu", "Bard", "Blitzcrank", "Brand", "Braum", "Janna", "Karma", "Leona", "Lulu", "Lux", "Maokai", "Milio", "Morgana", "Nami", "Nautilus", "Neeko", "Pantheon", "Poppy", "Pyke", "Rakan", "Rell", "Renata Glasc", "Senna", "Seraphine", "Sona", "Soraka", "Swain", "TahmKench", "Taric", "Thresh", "Velkoz", "Xerath", "Yuumi", "Zilean", "Zyra"]
 }
@@ -194,7 +199,7 @@ st.subheader("🏗️ Assistant de Draft")
 
 holes = [i for i, x in enumerate(draft) if x == "(A choisir)"]
 
-if len(holes) > 0 and len(holes) <= 3:
+if len(holes) > 0 and len(holes) <= 5:
     # A. CONFIGURATION DES ROLES
     c_roles = st.columns(len(holes))
     sel_roles = []
@@ -234,21 +239,39 @@ if len(holes) > 0 and len(holes) <= 3:
             if "Mon Pool" in pool_mode:
                 # Mode 1 : Ce qui est coché dans la Sidebar
                 raw = MY_POOL.get(role, [])
+                filt = [c for c in raw if c not in FORBIDDEN]
                 if not raw: st.warning(f"Ton pool {role} est vide ! Je prends tout.")
             else:
                 # Mode 2 : La GRANDE liste globale définie dans le code
                 raw = GLOBAL_META_ROLES.get(role, []) 
-            
+                filt = [c for c in raw if c not in FORBIDDEN]
+                filt = filt[:11]
             # Filtre Bans/Fearless
-            filt = [c for c in raw if c not in FORBIDDEN]
             lists.append(filt)
 
         if any(len(l) == 0 for l in lists):
             st.error("Aucun champion disponible avec ces filtres !")
             st.stop()
 
-        combos = list(itertools.product(*lists))
-        if len(combos) > 5000: combos = combos[:5000]
+        is_global_meta = "Méta Globale" in pool_mode
+        total_combinations = prod(len(l) for l in lists)
+        def smart_sample(lists, n):
+            res = set()
+            tries = 0
+            while len(res) < n and tries < n * 5:
+                pick = tuple(random.choice(l) for l in lists)
+                if len(set(pick)) == len(pick):
+                    res.add(pick)
+                    tries += 1
+            return list(res)
+        if total_combinations > MAX_COMBINATIONS:
+            st.warning(
+                f"⚠️ {total_combinations:,} combinaisons possibles → "
+                f"échantillonnage de {MAX_COMBINATIONS:,}"
+            )
+            combos = smart_sample(lists, MAX_COMBINATIONS)
+        else:
+            combos = list(itertools.product(*lists))
 
         sims, v_combos = [], []
         picked = [c for c in draft if c != "(A choisir)"]
