@@ -4,13 +4,16 @@ import requests
 import itertools
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
+
+# --- GESTION OLLAMA (POUR DÉPLOIEMENT EN LIGNE) ---
 try:
     import ollama
     OLLAMA_ACTIF = True
 except ImportError:
     OLLAMA_ACTIF = False
+
 # --- CONFIGURATION ---
-st.set_page_config(page_title="LoL AI Coach V7 - Fearless", layout="wide")
+st.set_page_config(page_title="LoL AI Coach - Fearless Mode", layout="wide")
 
 # --- MAPPING & ROLES ---
 NAME_MAPPING = {
@@ -21,13 +24,13 @@ NAME_MAPPING = {
 def clean_name(name):
     return NAME_MAPPING.get(name, name)
 
-# Liste élargie pour donner plus de liberté à l'IA
+# TA LISTE PERSONNALISÉE
 ROLES = {
-    "TOP": ["TahmKench", "Ornn", "Garen", "DrMundo", "Shen", "Ambessa"],
-    "JUNGLE": ["Maokai", "Xin Zhao", "Talon", "Diana","Elise","Amumu","Wukong"],
-    "MID": ["Orianna", "Azir", "Viktor", "Katarina","Xerath","Aurora","Ryze","Yone"],
-    "ADC": ["Kaisa", "Ezreal", "Jinx", "Caitlyn", "Ashe","Xayah", "Kalista","Miss Fortune", "Smolder","Aphelios"],
-    "SUPPORT": ["Soraka", "Milio", "Yuumi", "Lulu","Nami","Leona","Thresh","Rakan","Karma","Morgana"]
+    "TOP": ["TahmKench", "Ornn", "Garen", "DrMundo", "Shen", "Ambessa", "Malphite", "Sion"],
+    "JUNGLE": ["Maokai", "Xin Zhao", "Talon", "Diana", "Elise", "Amumu", "Wukong", "Sejuani", "Viego"],
+    "MID": ["Orianna", "Azir", "Viktor", "Katarina", "Xerath", "Aurora", "Ryze", "Yone", "Ahri", "Syndra"],
+    "ADC": ["Kaisa", "Ezreal", "Jinx", "Caitlyn", "Ashe", "Xayah", "Kalista", "Miss Fortune", "Smolder", "Aphelios", "Varus"],
+    "SUPPORT": ["Soraka", "Milio", "Yuumi", "Lulu", "Nami", "Leona", "Thresh", "Rakan", "Karma", "Morgana", "Nautilus", "Braum"]
 }
 
 st.title("🏆 LoL AI Coach - V8 (Bans & Fearless)")
@@ -72,11 +75,18 @@ def train_model():
 model, encoder, champ_list_ui, nb_matchs = train_model()
 if model is None: st.stop()
 
-# --- FONCTION DU COACH (VERSION ULTRA STRICTE) ---
+st.sidebar.success(f"Matches analysés : {nb_matchs}")
+if OLLAMA_ACTIF:
+    st.sidebar.success("✅ Module Coach (Ollama) Actif")
+else:
+    st.sidebar.warning("⚠️ Module Coach (Ollama) Inactif")
+
+# --- FONCTION DU COACH (VERSION STRICTE) ---
 def ask_ai_coach(my_team, enemy_team, recommended_pick, role, winrate):
+    # Sécurité pour le déploiement en ligne
     if not OLLAMA_ACTIF:
-        return "Le Coach Textuel est désactivé sur la version en ligne (Serveur trop petit)."
-    # Préparation du texte
+        return "⚠️ Le Coach Textuel est désactivé (Module 'ollama' non installé ou serveur cloud)."
+        
     my_team_str = ', '.join(my_team)
     enemy_team_str = ', '.join(enemy_team)
     
@@ -92,21 +102,16 @@ def ask_ai_coach(my_team, enemy_team, recommended_pick, role, winrate):
     DIRECTIVE :
     Donne 3 raisons techniques courtes (1 phrase max par point).
     N'utilise AUCUN nom de sort ou de compétence.
-    Ne fais AUCUNE phrase d'introduction ou de conclusion ("Bonjour", "En résumé").
+    Ne fais AUCUNE phrase d'introduction ou de conclusion.
     
     STRUCTURE DE RÉPONSE OBLIGATOIRE :
-    1. ⚖️ Dégâts : (Dis si le pick équilibre l'AD/AP ou apporte du Burst/DPS)
-    2. 🛡️ Utilité : (Dis s'il apporte du CC, du Peel ou de la Frontline)
-    3. ⚔️ Matchup : (Pourquoi il est bon contre la compo adverse en général)
+    1. ⚖️ Dégâts : (AD/AP/Burst/DPS)
+    2. 🛡️ Utilité : (CC/Peel/Engage)
+    3. ⚔️ Matchup : (Avantage tactique)
     """
     
     try:
-        # On baisse la "température" à 0.3 pour qu'il soit moins créatif et plus robotique
-        response = ollama.chat(
-            model='llama3.2', 
-            messages=[{'role': 'user', 'content': prompt}],
-            options={'temperature': 0.3} 
-        )
+        response = ollama.chat(model='llama3.2', messages=[{'role': 'user', 'content': prompt}], options={'temperature': 0.3})
         return response['message']['content']
     except Exception as e:
         return f"Erreur Ollama : {e}"
@@ -114,23 +119,18 @@ def ask_ai_coach(my_team, enemy_team, recommended_pick, role, winrate):
 # --- 2. INTERFACE BANS & FEARLESS ---
 with st.expander("🚫 GESTION DES BANS & FEARLESS (Tournoi)", expanded=True):
     col_ban1, col_ban2, col_fearless = st.columns([1, 1, 2])
-    
-    # On enlève "(A choisir)" de la liste des bans pour que ce soit propre
     ban_list = champ_list_ui[1:]
     
     with col_ban1:
         st.caption("🟦 Blue Bans")
         bans_blue = st.multiselect("Bans Blue", ban_list, key="bans_blue", label_visibility="collapsed")
-    
     with col_ban2:
         st.caption("🟥 Red Bans")
         bans_red = st.multiselect("Bans Red", ban_list, key="bans_red", label_visibility="collapsed")
-        
     with col_fearless:
         st.caption("💀 Fearless (Déjà joués)")
         fearless_picks = st.multiselect("Champions indisponibles", ban_list, key="fearless")
 
-# Liste totale des interdits pour l'IA
 FORBIDDEN_CHAMPS = set(bans_blue + bans_red + fearless_picks)
 
 # --- 3. INTERFACE DE DRAFT ---
@@ -159,9 +159,32 @@ with col2:
 
 current_draft = [b1, b2, b3, b4, b5, r1, r2, r3, r4, r5]
 
-# --- 4. ENGINE ---
-st.subheader("🏗️ Coach & Builder")
-use_llm = st.checkbox("Activer l'explication du Coach (Ollama)", value=True)
+# --- 4. ANALYSE SIMPLE (Bouton Ajouté) ---
+st.divider()
+if st.button("🔮 QUI GAGNE ? (Analyse Rapide)", type="primary", use_container_width=True):
+    safe_draft = [c if c != "(A choisir)" else "Aatrox" for c in current_draft]
+    try:
+        draft_nums = []
+        draft_nums.extend(encoder.transform(safe_draft[:5]))
+        draft_nums.extend(encoder.transform(safe_draft[5:]))
+        cols = [col for col in pd.read_csv('mes_donnees_lol.csv', nrows=1).columns if 'Pick' in col]
+        proba = model.predict_proba(pd.DataFrame([draft_nums], columns=cols))[0]
+        
+        win_blue = proba[1] * 100
+        win_red = proba[0] * 100
+        
+        c1, c2 = st.columns(2)
+        with c1: st.metric("Blue", f"{win_blue:.1f}%")
+        with c2: st.metric("Red", f"{win_red:.1f}%")
+        
+        if win_blue > 52: st.success("AVANTAGE BLUE")
+        elif win_red > 52: st.error("AVANTAGE RED")
+        else: st.info("ÉQUILIBRÉ")
+    except: st.error("Erreur de calcul")
+
+# --- 5. TEAM BUILDER ---
+st.subheader("🏗️ Coach Tactique & Builder")
+use_llm = st.checkbox("Activer l'explication du Coach", value=True, disabled=not OLLAMA_ACTIF)
 
 missing_indices = [i for i, x in enumerate(current_draft) if x == "(A choisir)"]
 
@@ -180,17 +203,14 @@ if len(missing_indices) > 0 and len(missing_indices) <= 3:
     if st.button("✨ GÉNÉRER COMPOSITION (Filtrée)"):
         progress_bar = st.progress(0)
         
-        # On prépare les listes, MAIS on filtre les Bans/Fearless
         lists_to_combine = []
         for role in selected_roles:
             raw_list = ROLES.get(role, [])
-            # FILTRE CRUCIAL : On enlève les interdits
             filtered_list = [c for c in raw_list if c not in FORBIDDEN_CHAMPS]
             lists_to_combine.append(filtered_list)
 
-        # Vérification si une liste est vide à cause des bans
         if any(len(l) == 0 for l in lists_to_combine):
-            st.error("❌ Impossible : Tous les champions pour l'un des rôles demandés sont bannis ou indisponibles !")
+            st.error("❌ Tous les champions possibles sont bannis !")
             st.stop()
 
         combinations = list(itertools.product(*lists_to_combine))
@@ -199,16 +219,11 @@ if len(missing_indices) > 0 and len(missing_indices) <= 3:
         simulations = []
         valid_combos = []
         already_picked = [c for c in current_draft if c != "(A choisir)"]
-        
-        # On ajoute les interdits aux "déjà pris" pour la logique combinatoire
         full_exclusion = set(already_picked).union(FORBIDDEN_CHAMPS)
-
         cols = [col for col in pd.read_csv('mes_donnees_lol.csv', nrows=1).columns if 'Pick' in col]
 
         for combo in combinations:
-            # Vérif doublons internes
             if len(set(combo)) != len(combo): continue
-            # Vérif si un champion du combo est interdit (double sécurité)
             if any(c in full_exclusion for c in combo): continue
             
             test_draft = current_draft.copy()
@@ -224,7 +239,6 @@ if len(missing_indices) > 0 and len(missing_indices) <= 3:
         if len(simulations) > 0:
             big_df = pd.DataFrame(simulations, columns=cols)
             all_probas = model.predict_proba(big_df)
-            
             results = []
             for i, p in enumerate(all_probas):
                 winrate = p[1] if team_color == "BLUE" else p[0]
@@ -234,13 +248,12 @@ if len(missing_indices) > 0 and len(missing_indices) <= 3:
             progress_bar.progress(100)
             
             best_combo_names, best_winrate = results[0]
-            st.success(f"🏆 TOP PICK (Post-Bans) : {' + '.join(best_combo_names)} ({best_winrate:.1f}%)")
+            st.success(f"🏆 TOP PICK : {' + '.join(best_combo_names)} ({best_winrate:.1f}%)")
             
-            if use_llm:
+            if use_llm and OLLAMA_ACTIF:
                 with st.spinner("Le coach analyse..."):
                     my_team_final = [c for c in current_draft[:5] if c != "(A choisir)"] 
                     if team_color == "BLUE": my_team_final.extend(best_combo_names)
-                    
                     enemy_team_final = [c for c in current_draft[5:] if c != "(A choisir)"]
                     if team_color == "RED": enemy_team_final.extend(best_combo_names)
                     
@@ -258,4 +271,4 @@ if len(missing_indices) > 0 and len(missing_indices) <= 3:
                     st.write(f"**#{i+2}** : {' + '.join(combo_names)} ({score:.1f}%)")
 
         else:
-            st.error("Aucune combinaison trouvée (trop de bans ?).")
+            st.error("Aucune combinaison trouvée.")
