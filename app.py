@@ -150,8 +150,8 @@ def p_menu(lbl, k, d="Gwenu"):
 
 with col1:
     st.header("🟦 BLUE SIDE")
-    b1 = p_menu("Pick 1", "b1", "Renekton")
-    b2 = p_menu("Pick 2", "b2", "Sejuani")
+    b1 = p_menu("Pick 1", "b1", "Sion")
+    b2 = p_menu("Pick 2", "b2", "Talon")
     b3 = p_menu("Pick 3", "b3", "(A choisir)")
     b4 = p_menu("Pick 4", "b4", "(A choisir)")
     b5 = p_menu("Pick 5", "b5", "(A choisir)")
