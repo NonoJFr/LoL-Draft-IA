@@ -13,13 +13,23 @@ region_account = 'europe'
 # Tu peux en ajouter d'autres !
 targets = [
     ('NPC Corsikanet', '7350'), # Toplaner
+    ('FeelsSadMan', 'EUW'), # Master Tahm
+    ('Maynter', 'EUW'), # Maynter
     ('int like Neron', 'NBO'),  # Jungler
+    ('Asuyiki', 'Tahm'),  # Master Talon
+    ('Agurin', 'DND'), # Agurin
     ('NonoJ', 'WIN'),   # Midlaner
+    ('Rgz', 'Noxus'),   # Master Katarina
+    ('the inescapable', 'RAT'), # Nemesis
     ('NPC Peraste', '9447'),    # Adc 
-    ('ωee ωoo ωee', 'Yuumi')    # Support
+    ('Skillshot Lander', 'EUW'),    # Chall Ezreal
+    ('G2 Hans Sama', 'EUW'), # Hans Sama
+    ('ωee ωoo ωee', 'Yuumi'),    # Support
+    ('T1 Yuumi', 'Yuumi'),    # Master Yuumi
+    ('Thumbs Down', '4847') # Parus
 ]
 
-nb_matchs_par_joueur = 100 # 40 x 3 joueurs = 120 matchs au total
+nb_matchs_par_joueur = 100 # 100 x 15 joueurs = 1500 matchs au total
 
 # --- 2. LE MOTEUR DE RÉCOLTE ---
 all_data_list = []
@@ -110,4 +120,5 @@ if len(all_data_list) > 0:
     df.to_csv('mes_donnees_lol.csv', index=False)
     print(f"BRAVO ! Fichier 'mes_donnees_lol.csv' mis à jour avec {len(all_data_list)} matchs.")
 else:
+
     print("Zut, aucun match récupéré. Vérifie ta clé API.")
