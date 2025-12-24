@@ -27,6 +27,7 @@ targets = [
     ('ωee ωoo ωee', 'Yuumi'),    # Support
     ('T1 Yuumi', 'Yuumi'),    # Master Yuumi
     ('Thumbs Down', '4847') # Parus
+
 ]
 
 nb_matchs_par_joueur = 100 # 100 x 15 joueurs = 1500 matchs au total
@@ -120,5 +121,4 @@ if len(all_data_list) > 0:
     df.to_csv('mes_donnees_lol.csv', index=False)
     print(f"BRAVO ! Fichier 'mes_donnees_lol.csv' mis à jour avec {len(all_data_list)} matchs.")
 else:
-
     print("Zut, aucun match récupéré. Vérifie ta clé API.")
