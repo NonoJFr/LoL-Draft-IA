@@ -4,7 +4,7 @@ import requests
 import time # Indispensable pour les pauses
 
 # --- 1. CONFIGURATION ---
-api_key = 'MA CLE'  # <--- REMETS TA CLÉ API ICI !
+api_key = 'st.secrets["RIOT_API_KEY"]'  # <--- REMETS TA CLÉ API ICI !
 watcher = LolWatcher(api_key)
 region = 'euw1'
 region_account = 'europe'
@@ -19,7 +19,7 @@ targets = [
     ('ωee ωoo ωee', 'Yuumi')    # Support
 ]
 
-nb_matchs_par_joueur = 40 # 40 x 3 joueurs = 120 matchs au total
+nb_matchs_par_joueur = 100 # 40 x 3 joueurs = 120 matchs au total
 
 # --- 2. LE MOTEUR DE RÉCOLTE ---
 all_data_list = []

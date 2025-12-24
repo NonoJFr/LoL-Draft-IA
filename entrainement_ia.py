@@ -1,4 +1,5 @@
 import pandas as pd
+import requests # Nécessaire pour avoir la liste officielle
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
@@ -6,66 +7,83 @@ from sklearn.metrics import accuracy_score
 
 # 1. CHARGEMENT DES DONNÉES
 print("Chargement des données...")
-# On lit ton fichier CSV
-df = pd.read_csv('mes_donnees_lol.csv')
+try:
+    df = pd.read_csv('mes_donnees_lol.csv')
+except FileNotFoundError:
+    print("Erreur : Le fichier 'mes_donnees_lol.csv' n'existe pas. Lance d'abord data_lol.py !")
+    exit()
 
-# 2. PRÉPARATION (TRADUCTION)
-# L'IA ne sait pas lire "Aatrox". On doit créer un dictionnaire (Encodeur).
-# On va dire à l'encodeur : "Apprends tous les noms de champions qui existent dans ce fichier".
+# 2. PRÉPARATION INTELLIGENTE (La correction est ici)
+print("Récupération de la liste officielle des champions...")
 
+# On demande à Riot la liste de TOUS les champions existants
+# Comme ça, l'IA connait même les champions qui ne sont pas dans ton fichier CSV
+try:
+    version_url = "https://ddragon.leagueoflegends.com/api/versions.json"
+    latest_version = requests.get(version_url).json()[0]
+    ddragon_url = f"https://ddragon.leagueoflegends.com/cdn/{latest_version}/data/en_US/champion.json"
+    data_champions = requests.get(ddragon_url).json()
+    
+    # Voici la liste complète de Aatrox à Zyra
+    liste_officielle = list(data_champions['data'].keys())
+    
+    # On ajoute manuellement 'Fiddlesticks' car Riot l'écrit parfois différemment
+    if 'Fiddlesticks' not in liste_officielle: 
+        liste_officielle.append('Fiddlesticks')
+
+except Exception as e:
+    print(f"Attention : Impossible de joindre Riot ({e}). On utilise seulement les champions du CSV.")
+    # Si pas d'internet, on fait comme avant
+    liste_officielle = pd.concat([df[col] for col in df.columns if 'Pick' in col]).unique()
+
+# On configure l'encodeur avec la liste COMPLÈTE
 encoder = LabelEncoder()
+encoder.fit(liste_officielle)
 
-# On prend toutes les colonnes de champions (Blue 1-5 et Red 1-5)
-all_champs = pd.concat([df[col] for col in df.columns if 'Pick' in col])
-encoder.fit(all_champs) # L'encodeur apprend la liste (ex: Aatrox=0, Ahri=1...)
-
-# Maintenant, on remplace les noms par des chiffres dans tout le tableau
+# On transforme tout le tableau en chiffres
+# On utilise une astuce pour ignorer les erreurs si un vieux champion bizarre traîne
 for col in df.columns:
     if 'Pick' in col:
+        # On ne garde que les champions connus de la liste officielle pour éviter les bugs
+        df = df[df[col].isin(liste_officielle)]
         df[col] = encoder.transform(df[col])
 
 # 3. SÉPARATION
-# X = Les données du match (les 10 champions)
-# y = Le résultat (Qui a gagné ?)
 X = df.drop('Blue_Win', axis=1)
 y = df['Blue_Win']
 
-# On coupe en deux : 80% pour s'entraîner (Train), 20% pour passer l'examen (Test)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# 4. ENTRAÎNEMENT DU MODÈLE
-print("Entraînement de l'IA en cours...")
-# On utilise une "Forêt Aléatoire". C'est excellent pour les données de ce type.
-model = RandomForestClassifier(n_estimators=100) 
-model.fit(X_train, y_train) # C'est ici que la magie opère !
+# 4. ENTRAÎNEMENT
+print(f"Entraînement sur {len(df)} matchs...")
+model = RandomForestClassifier(n_estimators=200, random_state=42) # 200 arbres pour être plus précis
+model.fit(X_train, y_train)
 
 # 5. ÉVALUATION
 predictions = model.predict(X_test)
 precision = accuracy_score(y_test, predictions)
 print(f"Précision de l'IA : {precision * 100:.2f}%")
 
-# --- BONUS : TESTER UNE DRAFT (CORRIGÉ) ---
+# --- TEST DE DRAFT ---
 print("\n--- TEST DE DRAFT ---")
-# Tes champions choisis (Attention à l'orthographe exacte ! "Zaahen" n'existe pas, attention aux crashs)
+# Tu peux maintenant mettre n'importe quel champion, ça ne plantera plus !
 blue_team = ['Malphite', 'Sejuani', 'Katarina', 'Yunara', 'Braum']
-red_team =  ['Yasuo', 'Diana', 'Veigar', 'Ezreal', 'Lulu'] 
-# J'ai remplacé Zaahen par Ornn pour l'exemple, car Zaahen fera planter si l'IA ne connait pas.
+red_team =  ['Yone', 'Diana', 'Veigar', 'Ezreal', 'Lulu']
 
 print(f"Blue: {blue_team}")
 print(f"Red:  {red_team}")
 
 try:
-    # 1. On transforme les noms en numéros
     draft_numerique = []
+    # On transforme les noms
     draft_numerique.extend(encoder.transform(blue_team))
     draft_numerique.extend(encoder.transform(red_team))
 
-    # 2. ON CRÉE UN PETIT DATAFRAME (C'est ça qui corrige l'avertissement rouge !)
-    # On reprend les mêmes noms de colonnes que le fichier d'entraînement
+    # On crée le DataFrame propre
     colonnes = [col for col in df.columns if 'Pick' in col]
     draft_df = pd.DataFrame([draft_numerique], columns=colonnes)
 
-    # 3. Prédiction
+    # Prédiction
     prediction = model.predict(draft_df)
     proba = model.predict_proba(draft_df)
 
@@ -76,6 +94,5 @@ try:
     print(f"Confiance : {confiance:.2f}%")
 
 except ValueError as e:
-    print("\nERREUR CRITIQUE : Un champion est mal orthographié ou inconnu !")
+    print(f"\nErreur : Un nom de champion est incorrect (Vérifie l'orthographe exacte, ex: 'Wukong' s'écrit 'MonkeyKing' dans l'API).")
     print(f"Détail : {e}")
-    print("Conseil : Vérifie que le champion existe bien dans ton fichier 'mes_donnees_lol.csv'.")
