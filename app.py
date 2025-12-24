@@ -24,12 +24,22 @@ def clean_name(name): return NAME_MAPPING.get(name, name)
 
 # --- STARTER PACK (Tes favoris par défaut) ---
 # Ce sont les champions cochés par défaut au démarrage
-DEFAULT_ROLES = {
+USER_STARTER_POOL = {
     "TOP": ["TahmKench", "Ornn", "Garen", "DrMundo", "Shen", "Ambessa", "Malphite", "Sion","Warwick"],
     "JUNGLE": ["Maokai", "XinZhao", "Talon", "Diana", "Elise", "Amumu", "Wukong", "Sejuani"],
     "MID": ["Orianna", "Azir", "Viktor", "Katarina", "Xerath", "Aurora", "Ryze", "Yone", "Ahri"],
     "ADC": ["Kaisa", "Ezreal", "Jinx", "Caitlyn", "Ashe", "Xayah", "Kalista", "MissFortune", "Smolder", "Aphelios"],
     "SUPPORT": ["Soraka", "Milio", "Yuumi", "Lulu", "Nami", "Leona", "Thresh", "Rakan", "Karma", "Morgana", "Braum"]
+}
+
+# 2. LA LISTE DU JEU COMPLET (Pour l'option "Méta Globale")
+# -> J'ai rempli ça avec quasiment tous les champions viables par rôle en S14/S15.
+GLOBAL_META_ROLES = {
+    "TOP": ["Aatrox", "Akali", "Ambessa", "Camille", "ChoGath", "Darius", "DrMundo", "Fiora", "Gangplank", "Garen", "Gnar", "Gragas", "Gwen", "Illaoi", "Irelia", "Jax", "Jayce", "Kayle", "Kennen", "Kled", "Ksante", "Malphite", "Mordekaiser", "Nasus", "Olaf", "Ornn", "Pantheon", "Poppy", "Quinn", "Renekton", "Riven", "Rumble", "Sett", "Shen", "Singed", "Sion", "TahmKench", "Teemo", "Tryndamere", "Urgot", "Vayne", "Volibear", "Wukong", "Yasuo", "Yone", "Yorick", "Zac"],
+    "JUNGLE": ["Amumu", "Belveth", "Briar", "Diana", "Ekko", "Elise", "Evelynn", "Fiddlesticks", "Gragas", "Graves", "Hecarim", "Ivern", "JarvanIV", "Karthus", "Kayn", "KhaZix", "Kindred", "LeeSin", "Lillia", "MasterYi", "Maokai", "Nidalee", "Nocturne", "Nunu", "Pantheon", "Poppy", "Rammus", "RekSai", "Rengar", "Sejuani", "Shaco", "Shyvana", "Skarner", "Taliyah", "Talon", "Trundle", "Udyr", "Vi", "Viego", "Volibear", "Warwick", "Wukong", "XinZhao", "Zac", "Zed"],
+    "MID": ["Ahri", "Akali", "Akshan", "Anivia", "Annie", "AurelionSol", "Aurora", "Azir", "Cassiopeia", "Corki", "Diana", "Ekko", "Fizz", "Galio", "Hwei", "Irelia", "Jayce", "Kassadin", "Katarina", "Leblanc", "Lissandra", "Lux", "Malzahar", "Naafiri", "Neeko", "Orianna", "Qiyana", "Ryze", "Smolder", "Swain", "Sylas", "Syndra", "Taliyah", "Talon", "TwistedFate", "Veigar", "Vex", "Viktor", "Vladimir", "Xerath", "Yasuo", "Yone", "Zed", "Ziggs", "Zoe"],
+    "ADC": ["Aphelios", "Ashe", "Caitlyn", "Draven", "Ezreal", "Jhin", "Jinx", "Kaisa", "Kalista", "KogMaw", "Lucian", "MissFortune", "Nilah", "Samira", "Sivir", "Smolder", "Tristana", "Twitch", "Varus", "Vayne", "Xayah", "Zeri", "Ziggs"],
+    "SUPPORT": ["Alistar", "Amumu", "Bard", "Blitzcrank", "Brand", "Braum", "Janna", "Karma", "Leona", "Lulu", "Lux", "Maokai", "Milio", "Morgana", "Nami", "Nautilus", "Neeko", "Pantheon", "Poppy", "Pyke", "Rakan", "Rell", "Renata Glasc", "Senna", "Seraphine", "Sona", "Soraka", "Swain", "TahmKench", "Taric", "Thresh", "Velkoz", "Xerath", "Yuumi", "Zilean", "Zyra"]
 }
 
 st.title("🏆 LoL AI Coach - V10 (Pool Manager)")
@@ -112,19 +122,11 @@ st.sidebar.success(f"Data : {nb_matchs} matchs")
 
 with st.sidebar.expander("🏊 MON CHAMPION POOL", expanded=False):
     st.write("Défins ici les champions que TES joueurs savent jouer.")
-    
-    # On crée des menus multiselect pour modifier le pool en direct
     MY_POOL = {}
-    for role, defaults in DEFAULT_ROLES.items():
-        # On vérifie que les defaults existent bien dans la liste Riot pour éviter erreur
+    # ICI : On utilise USER_STARTER_POOL pour l'initialisation
+    for role, defaults in USER_STARTER_POOL.items():
         valid_defaults = [c for c in defaults if c in full_champ_list]
-        
-        selected = st.multiselect(
-            f"Pool {role}", 
-            full_champ_list, 
-            default=valid_defaults,
-            key=f"pool_{role}"
-        )
+        selected = st.multiselect(f"Pool {role}", full_champ_list, default=valid_defaults, key=f"pool_{role}")
         MY_POOL[role] = selected
 
 # ==============================================================================
@@ -150,10 +152,10 @@ def p_menu(lbl, k, d="Gwenu"):
 
 with col1:
     st.header("🟦 BLUE SIDE")
-    b1 = p_menu("Pick 1", "b1", "Sion")
-    b2 = p_menu("Pick 2", "b2", "Talon")
-    b3 = p_menu("Pick 3", "b3", "(A choisir)")
-    b4 = p_menu("Pick 4", "b4", "(A choisir)")
+    b1 = p_menu("Pick 1", "b1", "TahmKench")
+    b2 = p_menu("Pick 2", "b2", "(A choisir)")
+    b3 = p_menu("Pick 3", "b3", "Katarina")
+    b4 = p_menu("Pick 4", "b4", "Ezreal")
     b5 = p_menu("Pick 5", "b5", "(A choisir)")
 
 with col2:
@@ -227,23 +229,17 @@ if len(holes) > 0 and len(holes) <= 3:
 
     if st.button("✨ GÉNÉRER SUGGESTIONS"):
         prog = st.progress(0)
-        
-        # C. SÉLECTION DES LISTES SELON LE MODE
         lists = []
         for role in sel_roles:
             if "Mon Pool" in pool_mode:
-                # On prend uniquement ce qui est coché dans la Sidebar
+                # Mode 1 : Ce qui est coché dans la Sidebar
                 raw = MY_POOL.get(role, [])
-                if not raw: st.warning(f"Ton pool {role} est vide ! Je prends tout par défaut.")
+                if not raw: st.warning(f"Ton pool {role} est vide ! Je prends tout.")
             else:
-                # On prend TOUT le jeu (enfin, tout ce que l'IA connait)
-                # On filtre un peu quand même pour pas proposer Yuumi Jungle (via DEFAULT_ROLES élargi ou liste Riot)
-                # Pour faire simple ici, on prend le DEFAULT_ROLES mais on pourrait prendre full_champ_list
-                # Astuce : Pour la "Méta Globale", on va utiliser full_champ_list mais c'est risqué (trop de choix)
-                # On va plutôt utiliser une version très élargie du DEFAULT_ROLES ou juste prendre le DEFAULT
-                raw = DEFAULT_ROLES.get(role, []) 
-                # Si tu veux vraiment TOUT le jeu : raw = full_champ_list (mais c'est lent)
+                # Mode 2 : La GRANDE liste globale définie dans le code
+                raw = GLOBAL_META_ROLES.get(role, []) 
             
+            # Filtre Bans/Fearless
             filt = [c for c in raw if c not in FORBIDDEN]
             lists.append(filt)
 
