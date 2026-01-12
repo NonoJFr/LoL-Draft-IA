@@ -135,7 +135,7 @@ with col1:
 
 with col2:
     st.header("🟥 RED SIDE")
-    r1 = p_menu("Pick 1", "r1", "Zac")
+    r1 = p_menu("Pick 1", "r1", "Zaahen")
     r2 = p_menu("Pick 2", "r2", "LeeSin")
     r3 = p_menu("Pick 3", "r3", "Ahri")
     r4 = p_menu("Pick 4", "r4", "Kaisa")
@@ -341,4 +341,5 @@ if st.button("🔍 TROUVER LE MEILLEUR DUO"):
                     with cols[0]: st.markdown(f"**#{i+1} {name}**")
                     with cols[1]: st.progress(int(score))
                     with cols[2]: st.write(f"**{score:.1f}%** ({count} games)")
+
 
