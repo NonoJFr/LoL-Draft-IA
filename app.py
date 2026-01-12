@@ -4,8 +4,6 @@ import requests
 import itertools
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
-import random
-from math import prod
 
 # --- GESTION OLLAMA ---
 try:
@@ -15,10 +13,7 @@ except ImportError:
     OLLAMA_ACTIF = False
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="LoL AI Coach V10 - Pool Manager", layout="wide")
-
-MAX_COMBINATIONS = 25000
-TOP_K_PER_ROLE = 8   # réduction intelligente par rôle
+st.set_page_config(page_title="LoL AI Coach - V10 STABLE", layout="wide")
 
 # --- MAPPING ---
 NAME_MAPPING = {
@@ -27,27 +22,25 @@ NAME_MAPPING = {
 }
 def clean_name(name): return NAME_MAPPING.get(name, name)
 
-# --- STARTER PACK (Tes favoris par défaut) ---
-# Ce sont les champions cochés par défaut au démarrage
+# 1. LA LISTE DE TES JOUEURS (Celle qui apparait cochée par défaut)
 USER_STARTER_POOL = {
-    "TOP": ["TahmKench", "Ornn", "Garen", "DrMundo", "Shen", "Ambessa", "Malphite", "Sion","Warwick"],
-    "JUNGLE": ["Maokai", "XinZhao", "Talon", "Diana", "Elise", "Amumu", "Wukong", "Sejuani"],
-    "MID": ["Orianna", "Azir", "Viktor", "Katarina", "Xerath", "Aurora", "Ryze", "Yone", "Ahri"],
-    "ADC": ["Kaisa", "Ezreal", "Jinx", "Caitlyn", "Ashe", "Xayah", "Kalista", "MissFortune", "Smolder", "Aphelios"],
-    "SUPPORT": ["Soraka", "Milio", "Yuumi", "Lulu", "Nami", "Leona", "Thresh", "Rakan", "Karma", "Morgana", "Braum"]
+    "TOP": ["TahmKench", "Ornn", "Garen", "DrMundo", "Shen", "Ambessa", "Malphite", "Sion", "Renekton", "Aatrox"],
+    "JUNGLE": ["Maokai", "Xin Zhao", "Talon", "Diana", "Elise", "Amumu", "Wukong", "Sejuani", "Viego", "Lee Sin"],
+    "MID": ["Orianna", "Azir", "Viktor", "Katarina", "Xerath", "Aurora", "Ryze", "Yone", "Ahri", "Syndra"],
+    "ADC": ["Kaisa", "Ezreal", "Jinx", "Caitlyn", "Ashe", "Xayah", "Kalista", "Miss Fortune", "Smolder", "Aphelios", "Varus"],
+    "SUPPORT": ["Soraka", "Milio", "Yuumi", "Lulu", "Nami", "Leona", "Thresh", "Rakan", "Karma", "Morgana", "Nautilus", "Braum"]
 }
 
 # 2. LA LISTE DU JEU COMPLET (Pour l'option "Méta Globale")
-# -> J'ai rempli ça avec quasiment tous les champions viables par rôle en S14/S15.
 GLOBAL_META_ROLES = {
-    "TOP": ["Aatrox", "Akali", "Ambessa", "Camille", "ChoGath", "Darius", "DrMundo", "Fiora", "Gangplank", "Garen", "Gnar", "Gragas", "Gwen","Irelia", "Jax", "Jayce", "Kayle", "Kennen", "Kled", "Ksante", "Malphite", "Mordekaiser", "Nasus", "Olaf", "Ornn","Poppy","Renekton", "Riven", "Rumble", "Sett", "Shen", "Singed", "Sion", "TahmKench", "Teemo", "Tryndamere", "Urgot", "Vayne", "Volibear", "Yasuo", "Yone", "Yorick", "Zaahen"],
-    "JUNGLE": ["Amumu", "Diana","Elise", "Fiddlesticks","Graves", "Hecarim", "Ivern", "JarvanIV", "Karthus", "Kayn", "KhaZix", "Kindred", "LeeSin", "Lillia","Maokai", "Nidalee", "Nocturne", "Nunu", "Pantheon", "Poppy","RekSai", "Rengar", "Sejuani", "Shaco","Skarner","Talon", "Trundle","Vi", "Viego", "Volibear","Wukong", "XinZhao", "Zac", "Zed"],
-    "MID": ["Ahri", "Akali","Anivia", "Annie", "AurelionSol", "Aurora", "Azir", "Cassiopeia", "Corki", "Diana","Galio", "Hwei", "Irelia", "Jayce","Katarina", "Leblanc", "Lissandra", "Lux", "Malzahar","Neeko", "Orianna", "Qiyana", "Ryze", "Smolder", "Swain", "Sylas", "Syndra", "Taliyah", "Talon", "TwistedFate", "Veigar", "Vex", "Viktor", "Vladimir", "Xerath", "Yasuo", "Yone", "Zed", "Ziggs", "Zoe"],
+    "TOP": ["Aatrox", "Akali", "Ambessa", "Camille", "ChoGath", "Darius", "DrMundo", "Fiora", "Gangplank", "Garen", "Gnar", "Gragas", "Gwen", "Illaoi", "Irelia", "Jax", "Jayce", "Kayle", "Kennen", "Kled", "Ksante", "Malphite", "Mordekaiser", "Nasus", "Olaf", "Ornn", "Pantheon", "Poppy", "Quinn", "Renekton", "Riven", "Rumble", "Sett", "Shen", "Singed", "Sion", "TahmKench", "Teemo", "Tryndamere", "Urgot", "Vayne", "Volibear", "Wukong", "Yasuo", "Yone", "Yorick", "Zac"],
+    "JUNGLE": ["Amumu", "Belveth", "Briar", "Diana", "Ekko", "Elise", "Evelynn", "Fiddlesticks", "Gragas", "Graves", "Hecarim", "Ivern", "JarvanIV", "Karthus", "Kayn", "KhaZix", "Kindred", "LeeSin", "Lillia", "MasterYi", "Maokai", "Nidalee", "Nocturne", "Nunu", "Pantheon", "Poppy", "Rammus", "RekSai", "Rengar", "Sejuani", "Shaco", "Shyvana", "Skarner", "Taliyah", "Talon", "Trundle", "Udyr", "Vi", "Viego", "Volibear", "Warwick", "Wukong", "XinZhao", "Zac", "Zed"],
+    "MID": ["Ahri", "Akali", "Akshan", "Anivia", "Annie", "AurelionSol", "Aurora", "Azir", "Cassiopeia", "Corki", "Diana", "Ekko", "Fizz", "Galio", "Hwei", "Irelia", "Jayce", "Kassadin", "Katarina", "Leblanc", "Lissandra", "Lux", "Malzahar", "Naafiri", "Neeko", "Orianna", "Qiyana", "Ryze", "Smolder", "Swain", "Sylas", "Syndra", "Taliyah", "Talon", "TwistedFate", "Veigar", "Vex", "Viktor", "Vladimir", "Xerath", "Yasuo", "Yone", "Zed", "Ziggs", "Zoe"],
     "ADC": ["Aphelios", "Ashe", "Caitlyn", "Draven", "Ezreal", "Jhin", "Jinx", "Kaisa", "Kalista", "KogMaw", "Lucian", "MissFortune", "Nilah", "Samira", "Sivir", "Smolder", "Tristana", "Twitch", "Varus", "Vayne", "Xayah", "Zeri", "Ziggs"],
     "SUPPORT": ["Alistar", "Amumu", "Bard", "Blitzcrank", "Brand", "Braum", "Janna", "Karma", "Leona", "Lulu", "Lux", "Maokai", "Milio", "Morgana", "Nami", "Nautilus", "Neeko", "Pantheon", "Poppy", "Pyke", "Rakan", "Rell", "Renata Glasc", "Senna", "Seraphine", "Sona", "Soraka", "Swain", "TahmKench", "Taric", "Thresh", "Velkoz", "Xerath", "Yuumi", "Zilean", "Zyra"]
 }
 
-st.title("🏆 LoL AI Coach - V10 (Pool Manager)")
+st.title("🏆 LoL AI Coach - V10 (Stable)")
 
 # --- 1. FONCTION D'ENTRAÎNEMENT ---
 @st.cache_resource
@@ -91,52 +84,30 @@ if model is None: st.stop()
 # --- COACH OLLAMA ---
 def ask_ai_coach(my_team, enemy_team, recommended_pick, role, winrate):
     if not OLLAMA_ACTIF: return "⚠️ Coach Inactif."
-    my_team_str = ', '.join(my_team)
-    enemy_team_str = ', '.join(enemy_team)
-    
     prompt = f"""
-    Agis comme un analyste de données LoL concis.
-    
-    CONTEXTE :
-    Alliés : [{my_team_str}]
-    Ennemis : [{enemy_team_str}]
-    Pick Recommandé : {recommended_pick} ({role})
-    Winrate : {winrate:.1f}%
-
-    DIRECTIVE :
-    Donne 3 raisons techniques courtes (1 phrase max par point).
-    N'utilise AUCUN nom de sort ou de compétence.
-    Ne fais AUCUNE phrase d'introduction ou de conclusion.
-    
-    STRUCTURE DE RÉPONSE OBLIGATOIRE :
-    1. ⚖️ Dégâts : (AD/AP/Burst/DPS)
-    2. 🛡️ Utilité : (CC/Peel/Engage)
-    3. ⚔️ Matchup : (Avantage tactique)
+    Agis comme un analyste LoL.
+    Alliés: {', '.join(my_team)} | Ennemis: {', '.join(enemy_team)}
+    Pick: {recommended_pick} ({role}) | Winrate: {winrate:.1f}%
+    Donne 3 points (Dégâts, Utilité, Matchup) sans blabla ni noms de sorts inventés.
     """
     try:
         response = ollama.chat(model='llama3.2', messages=[{'role': 'user', 'content': prompt}], options={'temperature': 0.3})
         return response['message']['content']
-    except:
-        return "Ollama n'est pas lancé."
+    except: return "Erreur Ollama."
 
-# ==============================================================================
-# 2. SIDEBAR : GESTIONNAIRE DE POOL (LA NOUVEAUTÉ)
-# ==============================================================================
+# --- 2. SIDEBAR : GESTIONNAIRE DE POOL ---
 st.sidebar.title("🎛️ Gestion d'Équipe")
 st.sidebar.success(f"Data : {nb_matchs} matchs")
 
 with st.sidebar.expander("🏊 MON CHAMPION POOL", expanded=False):
     st.write("Défins ici les champions que TES joueurs savent jouer.")
     MY_POOL = {}
-    # ICI : On utilise USER_STARTER_POOL pour l'initialisation
     for role, defaults in USER_STARTER_POOL.items():
         valid_defaults = [c for c in defaults if c in full_champ_list]
         selected = st.multiselect(f"Pool {role}", full_champ_list, default=valid_defaults, key=f"pool_{role}")
         MY_POOL[role] = selected
 
-# ==============================================================================
-# 3. INTERFACE BANS & FEARLESS
-# ==============================================================================
+# --- 3. BANS & FEARLESS ---
 with st.expander("🚫 BANS & FEARLESS", expanded=True):
     c1, c2, c3 = st.columns([1,1,2])
     ban_list = champ_list_ui[1:]
@@ -146,12 +117,11 @@ with st.expander("🚫 BANS & FEARLESS", expanded=True):
 
 FORBIDDEN = set(bans_blue + bans_red + fearless)
 
-# ==============================================================================
-# 4. DRAFT BOARD
-# ==============================================================================
+# --- 4. DRAFT BOARD ---
 st.divider()
 col1, col2 = st.columns(2)
 def p_menu(lbl, k, d="Gwenu"):
+    # Si le défaut n'existe pas, on met index 0
     i = champ_list_ui.index(d) if d in champ_list_ui else 0
     return st.selectbox(lbl, champ_list_ui, index=i, key=k)
 
@@ -165,7 +135,7 @@ with col1:
 
 with col2:
     st.header("🟥 RED SIDE")
-    r1 = p_menu("Pick 1", "r1", "Zaahen")
+    r1 = p_menu("Pick 1", "r1", "Zac")
     r2 = p_menu("Pick 2", "r2", "LeeSin")
     r3 = p_menu("Pick 3", "r3", "Ahri")
     r4 = p_menu("Pick 4", "r4", "Kaisa")
@@ -173,9 +143,7 @@ with col2:
 
 draft = [b1, b2, b3, b4, b5, r1, r2, r3, r4, r5]
 
-# ==============================================================================
-# 5. BOUTON D'ANALYSE
-# ==============================================================================
+# --- 5. BOUTON D'ANALYSE ---
 st.divider()
 if st.button("🔮 QUI GAGNE ?", type="primary", use_container_width=True):
     safe = [c if c != "(A choisir)" else "Aatrox" for c in draft]
@@ -187,19 +155,23 @@ if st.button("🔮 QUI GAGNE ?", type="primary", use_container_width=True):
         c1, c2 = st.columns(2)
         c1.metric("Blue", f"{wb:.1f}%")
         c2.metric("Red", f"{wr:.1f}%")
-        if wb > 52: st.success("AVANTAGE BLUE")
-        elif wr > 52: st.error("AVANTAGE RED")
-        else: st.info("ÉQUILIBRÉ")
+        if wb > 52: 
+            st.success("AVANTAGE BLUE")
+            st.progress(int(wb))
+        elif wr > 52: 
+            st.error("AVANTAGE RED")
+            st.progress(int(wb))
+        else: 
+            st.info("ÉQUILIBRÉ")
+            st.progress(50)
     except: st.error("Calcul impossible")
 
-# ==============================================================================
-# 6. BUILDER INTELLIGENT
-# ==============================================================================
+# --- 6. BUILDER INTELLIGENT ---
 st.subheader("🏗️ Assistant de Draft")
 
 holes = [i for i, x in enumerate(draft) if x == "(A choisir)"]
 
-if len(holes) > 0 and len(holes) <= 5:
+if len(holes) > 0 and len(holes) <= 3:
     # A. CONFIGURATION DES ROLES
     c_roles = st.columns(len(holes))
     sel_roles = []
@@ -209,24 +181,15 @@ if len(holes) > 0 and len(holes) <= 5:
         midx = holes[idx]
         sname = f"{'Blue' if midx < 5 else 'Red'} P{midx%5+1}"
         with cr:
-            # CORRECTION ICI : on change key=f"r{idx}" par key=f"role_select_{idx}"
-            # pour éviter le conflit avec les picks Red Side (r1, r2...)
+            # Clé unique pour éviter les conflits
             r = st.selectbox(f"Rôle {sname}", ["TOP", "JUNGLE", "MID", "ADC", "SUPPORT"], key=f"role_select_{idx}")
             sel_roles.append(r)
 
-    # B. LE SWITCH STRATÉGIQUE (LA NOUVELLE OPTION)
+    # B. OPTIONS
     st.markdown("---")
     col_opt1, col_opt2 = st.columns([2, 1])
-    
     with col_opt1:
-        st.write("Quel pool de champions utiliser ?")
-        # C'est ici que tu décides si tu limites l'IA ou si tu ouvres les vannes
-        pool_mode = st.radio(
-            "Mode de Suggestion :", 
-            ["🔒 Mon Pool (Mes Joueurs)", "🌍 Méta Globale (Tout le jeu)"],
-            horizontal=True
-        )
-    
+        pool_mode = st.radio("Mode de Suggestion :", ["🔒 Mon Pool (Mes Joueurs)", "🌍 Méta Globale (Tout le jeu)"], horizontal=True)
     with col_opt2:
         st.write("")
         st.write("")
@@ -237,41 +200,22 @@ if len(holes) > 0 and len(holes) <= 5:
         lists = []
         for role in sel_roles:
             if "Mon Pool" in pool_mode:
-                # Mode 1 : Ce qui est coché dans la Sidebar
+                # Utilise ce qui est coché dans la Sidebar
                 raw = MY_POOL.get(role, [])
-                filt = [c for c in raw if c not in FORBIDDEN]
                 if not raw: st.warning(f"Ton pool {role} est vide ! Je prends tout.")
             else:
-                # Mode 2 : La GRANDE liste globale définie dans le code
+                # Utilise la grosse liste globale
                 raw = GLOBAL_META_ROLES.get(role, []) 
-                filt = [c for c in raw if c not in FORBIDDEN]
-                filt = filt[:11]
-            # Filtre Bans/Fearless
+            
+            filt = [c for c in raw if c not in FORBIDDEN]
             lists.append(filt)
 
         if any(len(l) == 0 for l in lists):
             st.error("Aucun champion disponible avec ces filtres !")
             st.stop()
 
-        is_global_meta = "Méta Globale" in pool_mode
-        total_combinations = prod(len(l) for l in lists)
-        def smart_sample(lists, n):
-            res = set()
-            tries = 0
-            while len(res) < n and tries < n * 5:
-                pick = tuple(random.choice(l) for l in lists)
-                if len(set(pick)) == len(pick):
-                    res.add(pick)
-                    tries += 1
-            return list(res)
-        if total_combinations > MAX_COMBINATIONS:
-            st.warning(
-                f"⚠️ {total_combinations:,} combinaisons possibles → "
-                f"échantillonnage de {MAX_COMBINATIONS:,}"
-            )
-            combos = smart_sample(lists, MAX_COMBINATIONS)
-        else:
-            combos = list(itertools.product(*lists))
+        combos = list(itertools.product(*lists))
+        if len(combos) > 5000: combos = combos[:5000]
 
         sims, v_combos = [], []
         picked = [c for c in draft if c != "(A choisir)"]
@@ -314,3 +258,86 @@ if len(holes) > 0 and len(holes) <= 5:
                     st.write(f"**#{i+2}** {', '.join(n)} ({s:.1f}%)")
         else:
             st.error("Aucune combinaison trouvée.")
+
+# 8. FINDER DE DUO (MEILLEURE SYNERGIE CIBLÉE)
+# ==============================================================================
+st.divider()
+st.subheader("🤝 Finder de Duo (Qui jouer avec... ?)")
+st.caption("Choisis un champion, l'IA cherche son meilleur partenaire statistique.")
+
+col_find1, col_find2, col_find3 = st.columns([2, 1, 1])
+
+with col_find1:
+    # On propose tous les champions connus
+    target_champ = st.selectbox("Je veux jouer...", champ_list_ui, index=champ_list_ui.index("Yasuo") if "Yasuo" in champ_list_ui else 0)
+
+with col_find2:
+    # Filtre pour ne chercher que des Junglers, des Supports, etc.
+    wanted_role = st.selectbox("Je cherche un allié en...", ["TOUS", "TOP", "JUNGLE", "MID", "ADC", "SUPPORT"], index=2)
+
+with col_find3:
+    min_duo_games = st.number_input("Min. Games", min_value=1, value=3, step=1)
+
+if st.button("🔍 TROUVER LE MEILLEUR DUO"):
+    if target_champ == "(A choisir)":
+        st.warning("Choisis d'abord un champion !")
+    else:
+        with st.spinner(f"Analyse des partenaires de {target_champ}..."):
+            df_duo = pd.read_csv('mes_donnees_lol.csv')
+            
+            # Nettoyage
+            for col in df_duo.columns:
+                if 'Pick' in col: df_duo[col] = df_duo[col].apply(lambda x: NAME_MAPPING.get(x, x))
+            
+            # On définit la liste des candidats (soit TOUT le jeu, soit filtré par rôle)
+            if wanted_role == "TOUS":
+                candidates = full_champ_list # Tous les champions
+            else:
+                # On utilise la liste GLOBAL_META_ROLES si elle existe, sinon ROLES
+                # (Assure-toi que GLOBAL_META_ROLES est bien défini dans ton code plus haut, sinon utilise DEFAULT_ROLES)
+                try:
+                    candidates = GLOBAL_META_ROLES.get(wanted_role, [])
+                except:
+                    candidates = DEFAULT_ROLES.get(wanted_role, [])
+
+            results_duo = []
+
+            # On parcourt tous les candidats possibles
+            for partner in candidates:
+                if partner == target_champ: continue # On ne peut pas jouer avec soi-même
+                
+                # On cherche les games où Target + Partner sont ENSEMBLE
+                # (Soit les deux Blue, soit les deux Red)
+                
+                # Check Blue Side
+                blue_tgt = df_duo[['Blue_Pick_1', 'Blue_Pick_2', 'Blue_Pick_3', 'Blue_Pick_4', 'Blue_Pick_5']].isin([target_champ]).any(axis=1)
+                blue_prt = df_duo[['Blue_Pick_1', 'Blue_Pick_2', 'Blue_Pick_3', 'Blue_Pick_4', 'Blue_Pick_5']].isin([partner]).any(axis=1)
+                games_blue = df_duo[blue_tgt & blue_prt]
+                
+                # Check Red Side
+                red_tgt = df_duo[['Red_Pick_1', 'Red_Pick_2', 'Red_Pick_3', 'Red_Pick_4', 'Red_Pick_5']].isin([target_champ]).any(axis=1)
+                red_prt = df_duo[['Red_Pick_1', 'Red_Pick_2', 'Red_Pick_3', 'Red_Pick_4', 'Red_Pick_5']].isin([partner]).any(axis=1)
+                games_red = df_duo[red_tgt & red_prt]
+                
+                total_games = len(games_blue) + len(games_red)
+                
+                if total_games >= min_duo_games:
+                    # Calcul Winrate
+                    wins = games_blue['Blue_Win'].sum() + (len(games_red) - games_red['Blue_Win'].sum())
+                    wr = (wins / total_games) * 100
+                    results_duo.append((partner, wr, total_games))
+            
+            # Tri et Affichage
+            if not results_duo:
+                st.error(f"Aucune donnée pour {target_champ} avec un {wanted_role} (min {min_duo_games} games).")
+            else:
+                # Tri par Winrate décroissant
+                results_duo.sort(key=lambda x: x[1], reverse=True)
+                
+                st.success(f"Top 5 Partenaires pour {target_champ} ({wanted_role}) :")
+                
+                for i, (name, score, count) in enumerate(results_duo[:5]):
+                    cols = st.columns([1, 3, 1])
+                    with cols[0]: st.markdown(f"**#{i+1} {name}**")
+                    with cols[1]: st.progress(int(score))
+                    with cols[2]: st.write(f"**{score:.1f}%** ({count} games)")
