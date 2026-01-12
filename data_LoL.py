@@ -24,25 +24,12 @@ targets = [
     ('NPC Peraste', '9447'),    # Adc 
     ('Skillshot Lander', 'EUW'),    # Chall Ezreal
     ('G2 Hans Sama', 'EUW'), # Hans Sama
-    ('Zediae', 'Yuumi'),    # Support
+    ('Zediae', 'EUW'),    # Support
     ('WOJOWNIK BODY', 'MT2'),    # Master Yuumi
     ('Thumbs Down', '4847'), # Parus
     ('xip', 'valen'), # Chall
     ('Son Of Caliste', 'GOAT'), # AZROD
     ('Koalachan', 'EUW'), # Koala
-    ('knight1112', '4165'), # Chall
-    ('JAY Félix', 'jay'), # Chall
-    ('抖音薄荷冰鸟', '0017'), # Chall
-    ('초보원딜러', 'KR1'), # Chall
-    ('old Ni', 'B站小尼'), # Chall
-    ('타 개', 'KR2'), # Chall
-    ('Jiahai', 'Yasuo'), # Chall
-    ('Stellar', '1105'), # Chall
-    ('Duro', 'Gen'), # GEN G
-    ('JUGKlNG', 'kr'), # 
-    ('허거덩', '0303'), # 
-    ('강 철', '샤 넬'), # 
-    ('kiin', 'KR1'), # 
     ('Left Hand', 'korea'), # KC
     ('Katze', 'myao'), # 
     ('KC Yiken', '1111'), # 
@@ -53,10 +40,11 @@ targets = [
     ('G2 Caps', '1323'), # 
     ('G2 Hans Sama', '12838'), # 
     ('G2 Labrov', '8085'), # 
-
+    
 ]
 
-nb_matchs_par_joueur = 10 # 10 x 41 joueurs = 410 matchs au total
+nb_matchs_par_joueur = 25 # 25 x 25 joueurs = 280 matchs au total
+
 
 # --- 2. LE MOTEUR DE RÉCOLTE ---
 all_data_list = []
@@ -149,3 +137,4 @@ if len(all_data_list) > 0:
 else:
 
     print("Zut, aucun match récupéré. Vérifie ta clé API.")
+
