@@ -1,5 +1,6 @@
 # app.py
-import streamlit as st
+import streamlit as st #python -m streamlit run app.py
+
 import pandas as pd
 import itertools
 import stats_tools as stt
@@ -30,10 +31,6 @@ if model is None: st.stop()
 st.sidebar.title("🎛️ Gestion d'Équipe")
 st.sidebar.success(f"Data : {nb_matchs} matchs")
 
-if coach.is_ollama_active():
-    st.sidebar.success("✅ Coach IA Actif")
-else:
-    st.sidebar.warning("⚠️ Coach IA Inactif")
 
 with st.sidebar.expander("🏊 MON CHAMPION POOL", expanded=False):
     st.write("Défins ici les champions que TES joueurs savent jouer.")
@@ -112,6 +109,27 @@ if st.button("🔮 ANALYSER LA DRAFT", type="primary", use_container_width=True)
             if wb > 52: st.success("AVANTAGE BLUE"); st.progress(int(wb))
             elif wr > 52: st.error("AVANTAGE RED"); st.progress(int(wb))
             else: st.info("ÉQUILIBRÉ"); st.progress(50)
+            st.write("---")
+            st.subheader("🧠 Analyse de l'Expert IA")
+        
+            # 1. On récupère les données précises
+            impacts = bk.get_draft_impact(draft[:5], draft[5:])
+            blue_wr = {name: wr for name, wr, count, col in impacts if col == "Blue"}
+            red_wr = {name: wr for name, wr, count, col in impacts if col == "Red"}
+        
+            # 2. On génère le rapport
+            rapport = coach.generate_deep_analysis(draft[:5], draft[5:], blue_wr, red_wr, wb)
+        
+            # 3. Affichage stylé
+            for line in rapport:
+                if "Danger" in line or "Fragilité" in line or "Cible" in line:
+                    st.error(line) # Rouge
+                elif "Avantage" in line or "Solidité" in line or "Facteur X" in line:
+                    st.success(line) # Vert
+                elif "Niveau de Jeu" in line:
+                    st.info(line) # Bleu
+                else:
+                    st.write(line) # Neutre
 
         except Exception as e: st.error(f"Calcul impossible : {e}")
 
@@ -170,9 +188,6 @@ if 0 < len(holes) <= 3:
     co1, co2 = st.columns([2, 1])
     with co1:
         pool_mode = st.radio("Mode :", ["🔒 Mon Pool", "🌍 Méta Globale"], horizontal=True)
-    with co2:
-        st.write("")
-        use_llm = st.checkbox("Coach (Ollama)", value=True, disabled=not coach.is_ollama_active())
 
     if st.button("✨ GÉNÉRER SUGGESTIONS"):
         prog = st.progress(0)
@@ -221,35 +236,14 @@ if 0 < len(holes) <= 3:
             best, b_score = res[0]
             st.success(f"🏆 TOP : {' + '.join(best)} ({b_score:.1f}%)")
             
-            if use_llm and coach.is_ollama_active():
-                with st.spinner("Le coach analyse les stats..."):
-                    # On prépare les équipes complètes
-                    m_team = [ch for ch in draft[:5] if ch != "(A choisir)"]
-                    if team_color == "BLUE": m_team.extend(best)
-                    
-                    e_team = [ch for ch in draft[5:] if ch != "(A choisir)"]
-                    if team_color == "RED": e_team.extend(best)
-                    
-                    # --- NOUVEAU : ON RÉCUPÈRE LES WINRATES POUR LE CONTEXTE ---
-                    # On utilise la fonction get_draft_impact de backend pour avoir les chiffres
-                    impacts_data = bk.get_draft_impact(m_team, e_team)
-                    
-                    # On transforme ça en dictionnaire facile à lire { "Yasuo": 52.0, ... }
-                    my_wr = {row[0]: row[1] for row in impacts_data if row[3] == team_color}
-                    en_wr = {row[0]: row[1] for row in impacts_data if row[3] != team_color}
-                    
-                    # Appel au nouveau coach intelligent
-                    explication = coach.ask_ai_coach(
-                        my_team=m_team,
-                        enemy_team=e_team,
-                        recommended_pick=' + '.join(best),
-                        role=', '.join(sel_roles),
-                        rec_winrate=b_score,
-                        my_team_winrates=my_wr,
-                        enemy_team_winrates=en_wr
-                    )
-                    st.info(explication)
-            
+            current_team = [ch for ch in draft[:5] if ch != "(A choisir)"]
+            if team_color == "BLUE": current_team.extend(best)
+            st.info(coach.generate_pick_advice(
+                pick_name=' + '.join(best), 
+                role=', '.join(sel_roles),
+                winrate=b_score,
+                my_team=current_team
+            ))
             with st.expander("Autres options"):
                 for i, (n, s) in enumerate(res[1:11]):
                     st.write(f"**#{i+2}** {', '.join(n)} ({s:.1f}%)")

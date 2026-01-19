@@ -4,6 +4,7 @@ import streamlit as st
 from xgboost import XGBClassifier
 from sklearn.preprocessing import LabelEncoder
 from constantes import clean_name, NAME_MAPPING
+import backend as bk # <--- AJOUTE CET IMPORT TOUT EN HAUT DU FICHIER
 
 @st.cache_resource
 def train_model():
@@ -144,3 +145,77 @@ def get_draft_impact(blue_team, red_team):
     except Exception as e:
         # En cas d'erreur, on renvoie une liste vide pour ne pas faire planter l'appli
         return []
+def get_head_to_head_stats(champ_a, champ_b):
+    """
+    Calcule le taux de victoire de Champ A lorsqu'il joue CONTRE Champ B.
+    Retourne : (Winrate de A, Nombre de matchs)
+    """
+    try:
+        df = pd.read_csv('mes_donnees_lol.csv')
+        # On ne nettoie pas tout le DF pour gagner du temps, on suppose les noms corrects
+        # ou on le fait à la volée si besoin (ici on suppose que l'input vient déjà du code propre)
+        
+        # 1. Cas : A est Blue, B est Red
+        # On cherche les lignes où A est dans les colonnes Blue ET B dans les colonnes Red
+        blue_cols = ['Blue_Pick_1', 'Blue_Pick_2', 'Blue_Pick_3', 'Blue_Pick_4', 'Blue_Pick_5']
+        red_cols = ['Red_Pick_1', 'Red_Pick_2', 'Red_Pick_3', 'Red_Pick_4', 'Red_Pick_5']
+        
+        # Masque : A est Blue
+        mask_a_blue = df[blue_cols].isin([champ_a]).any(axis=1)
+        # Masque : B est Red
+        mask_b_red = df[red_cols].isin([champ_b]).any(axis=1)
+        
+        # Matchs A vs B
+        matchs_avsb = df[mask_a_blue & mask_b_red]
+        wins_a_blue = matchs_avsb['Blue_Win'].sum()
+        total_avsb = len(matchs_avsb)
+        
+        # 2. Cas : A est Red, B est Blue
+        mask_a_red = df[red_cols].isin([champ_a]).any(axis=1)
+        mask_b_blue = df[blue_cols].isin([champ_b]).any(axis=1)
+        
+        matchs_bvsa = df[mask_a_red & mask_b_blue]
+        # A gagne si Blue_Win est 0
+        wins_a_red = len(matchs_bvsa) - matchs_bvsa['Blue_Win'].sum()
+        total_bvsa = len(matchs_bvsa)
+        
+        # Total
+        grand_total = total_avsb + total_bvsa
+        total_wins = wins_a_blue + wins_a_red
+        
+        if grand_total == 0:
+            return None, 0
+            
+        wr = (total_wins / grand_total) * 100
+        return wr, grand_total
+
+    except:
+        return None, 0
+def get_duo_winrate(champ_a, champ_b):
+    """
+    Calcule le taux de victoire quand A et B sont dans la MÊME équipe.
+    """
+    try:
+        df = pd.read_csv('mes_donnees_lol.csv')
+        # Nettoyage rapide (pas besoin de tout si le code appelant est propre)
+        
+        # Cas 1 : Ils sont tous les deux Blue
+        blue_cols = ['Blue_Pick_1', 'Blue_Pick_2', 'Blue_Pick_3', 'Blue_Pick_4', 'Blue_Pick_5']
+        mask_blue = df[blue_cols].isin([champ_a]).any(axis=1) & df[blue_cols].isin([champ_b]).any(axis=1)
+        games_blue = df[mask_blue]
+        wins_blue = games_blue['Blue_Win'].sum()
+        
+        # Cas 2 : Ils sont tous les deux Red
+        red_cols = ['Red_Pick_1', 'Red_Pick_2', 'Red_Pick_3', 'Red_Pick_4', 'Red_Pick_5']
+        mask_red = df[red_cols].isin([champ_a]).any(axis=1) & df[red_cols].isin([champ_b]).any(axis=1)
+        games_red = df[mask_red]
+        wins_red = len(games_red) - games_red['Blue_Win'].sum()
+        
+        total = len(games_blue) + len(games_red)
+        total_wins = wins_blue + wins_red
+        
+        if total < 3: return None, 0 # Pas assez de données
+        
+        return (total_wins / total) * 100, total
+    except:
+        return None, 0
