@@ -11,10 +11,10 @@ REGION_MASS = 'europe'
 
 # Combien de joueurs du TOP Challenger on scanne ? (Max 300)
 # Pour une clé DEV (gratuite), mets 30 à 50 sinon ça va prendre 4 heures.
-NB_JOUEURS_A_SCANNER = 40 
+NB_JOUEURS_A_SCANNER = 50 
 
 # Combien de matchs récents par joueur ?
-MATCHS_PAR_JOUEUR = 20
+MATCHS_PAR_JOUEUR = 40
 
 # Date de début de la Saison (ou "il y a 2 semaines" pour être sûr d'avoir la méta actuelle)
 # On prend les matchs joués depuis 14 jours seulement.
@@ -185,4 +185,5 @@ for i, player in enumerate(top_players):
     except Exception as e:
         print(f"⚠️ Erreur générale sur ce joueur : {e}")
         time.sleep(1)
+
 
